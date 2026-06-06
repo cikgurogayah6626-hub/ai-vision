@@ -1,4 +1,3 @@
-````python
 # ==========================================
 # AI VISION: AUTOMOTIVE COMPONENT ANALYZER
 # STREAMLIT + GEMINI 2.5 FLASH
@@ -369,4 +368,3 @@ st.markdown("---")
 st.caption(
     "🚗 Automotive AI Vision Analyzer • Streamlit + Gemini 2.5 Flash"
 )
-````
