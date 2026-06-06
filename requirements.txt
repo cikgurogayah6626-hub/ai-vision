@@ -1,3 +1,5 @@
 streamlit
 google-genai>=1.20.0
 pillow
+pandas
+openpyxl
