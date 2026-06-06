@@ -1,8 +1,6 @@
-# ==========================================
-# AI VISION: AUTOMOTIVE COMPONENT ANALYZER
-# STREAMLIT + GEMINI 2.5 FLASH
-# ==========================================
+# app.py
 
+````python
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -10,37 +8,38 @@ from PIL import Image
 import json
 import traceback
 
-# ------------------------------------------
+# -------------------------------------------------
 # PAGE CONFIG
-# ------------------------------------------
+# -------------------------------------------------
 st.set_page_config(
     page_title="Automotive AI Vision Analyzer",
     page_icon="🚗",
     layout="centered"
 )
 
-# ------------------------------------------
+# -------------------------------------------------
 # HEADER
-# ------------------------------------------
+# -------------------------------------------------
 st.title("🚗 AI Vision: Automotive Component Analyzer")
-st.caption("Built for MISDEC AI Training")
-st.markdown("---")
 
 st.markdown(
     """
 Upload gambar komponen kereta dan AI akan:
-- mengenal pasti komponen
-- membaca brand
-- extract spesifikasi
-- terangkan fungsi/kegunaan
-- detect part number
-- extract teks dari label/packaging
+
+✅ Kenal pasti komponen  
+✅ Detect brand  
+✅ Extract spesifikasi  
+✅ Terangkan fungsi  
+✅ Detect part number  
+✅ OCR teks pada label/packaging  
 """
 )
 
-# ------------------------------------------
+st.markdown("---")
+
+# -------------------------------------------------
 # SIDEBAR
-# ------------------------------------------
+# -------------------------------------------------
 with st.sidebar:
 
     st.header("⚙️ Gemini API Setup")
@@ -51,47 +50,44 @@ with st.sidebar:
     )
 
     st.markdown(
-        "[🔑 Get Gemini API Key](https://aistudio.google.com/app/apikey)"
+        "[🔑 Get API Key](https://aistudio.google.com/app/apikey)"
     )
 
     st.divider()
 
-    # API TEST
+    # TEST API BUTTON
     if st.button("🧪 Test API Key", use_container_width=True):
 
         if not api_key:
-            st.error("Please paste API key first.")
+            st.error("Paste API key first.")
 
         else:
             try:
                 client = genai.Client(api_key=api_key)
 
-                test_response = client.models.generate_content(
+                response = client.models.generate_content(
                     model="gemini-2.5-flash",
-                    contents="Reply with: API OK"
+                    contents="Reply with OK"
                 )
 
-                st.success(test_response.text)
+                st.success(response.text)
 
             except Exception as e:
-                st.error(f"ERROR: {str(e)}")
+
+                st.error(str(e))
                 st.code(traceback.format_exc())
 
-    st.divider()
-
-    st.caption("MISDEC AI Vision Training")
-
-# ------------------------------------------
-# FILE UPLOAD
-# ------------------------------------------
+# -------------------------------------------------
+# FILE UPLOADER
+# -------------------------------------------------
 uploaded_file = st.file_uploader(
     "📁 Upload Automotive Component Image",
     type=["jpg", "jpeg", "png", "webp"]
 )
 
-# ------------------------------------------
+# -------------------------------------------------
 # DEFAULT PROMPT
-# ------------------------------------------
+# -------------------------------------------------
 default_prompt = """
 You are an automotive component analysis AI assistant.
 
@@ -133,22 +129,22 @@ Rules:
 7. confidence_score must be between 0 and 100.
 """
 
-# ------------------------------------------
-# PROMPT EDITOR
-# ------------------------------------------
+# -------------------------------------------------
+# PROMPT BOX
+# -------------------------------------------------
 st.markdown("### 🎯 AI Prompt")
 
 prompt = st.text_area(
-    "Customize AI prompt",
+    "Prompt",
     value=default_prompt,
     height=350
 )
 
-# ------------------------------------------
+# -------------------------------------------------
 # ANALYZE BUTTON
-# ------------------------------------------
+# -------------------------------------------------
 if st.button(
-    "🚀 Analyze Automotive Component",
+    "🚀 Analyze Component",
     type="primary",
     use_container_width=True
 ):
@@ -171,7 +167,7 @@ if st.button(
         # OPEN IMAGE
         image = Image.open(uploaded_file).convert("RGB")
 
-        # DISPLAY IMAGE
+        # DISPLAY
         col1, col2 = st.columns(2)
 
         with col1:
@@ -188,22 +184,16 @@ if st.button(
             with st.spinner("Analyzing component..."):
 
                 response = client.models.generate_content(
+
                     model="gemini-2.5-flash",
 
-                    contents=[
-                        types.Part.from_text(text=prompt),
-                        types.Part.from_image(image)
-                    ],
+                    contents=[prompt, image],
 
                     config=types.GenerateContentConfig(
 
                         temperature=0.1,
 
                         response_mime_type="application/json",
-
-                        thinking_config=types.ThinkingConfig(
-                            thinking_budget=0
-                        ),
 
                         response_schema={
                             "type": "object",
@@ -267,9 +257,9 @@ if st.button(
                     )
                 )
 
-                # ----------------------------------
+                # ---------------------------------
                 # SAFE RESPONSE PARSING
-                # ----------------------------------
+                # ---------------------------------
                 raw_text = ""
 
                 if hasattr(response, "text") and response.text:
@@ -282,7 +272,7 @@ if st.button(
                         .text.strip()
                     )
 
-                # CLEAN MARKDOWN JSON
+                # CLEAN MARKDOWN
                 raw_text = raw_text.strip()
 
                 if "```json" in raw_text:
@@ -293,9 +283,9 @@ if st.button(
 
                 raw_text = raw_text.strip()
 
-                # ----------------------------------
-                # PARSE JSON
-                # ----------------------------------
+                # ---------------------------------
+                # JSON PARSE
+                # ---------------------------------
                 try:
 
                     parsed_json = json.loads(raw_text)
@@ -304,7 +294,7 @@ if st.button(
 
                     st.json(parsed_json)
 
-                    # DOWNLOAD BUTTON
+                    # DOWNLOAD
                     json_str = json.dumps(
                         parsed_json,
                         indent=2,
@@ -314,7 +304,7 @@ if st.button(
                     st.download_button(
                         label="⬇️ Download JSON",
                         data=json_str,
-                        file_name="automotive_component_analysis.json",
+                        file_name="automotive_analysis.json",
                         mime="application/json",
                         use_container_width=True
                     )
@@ -322,7 +312,7 @@ if st.button(
                 except json.JSONDecodeError:
 
                     st.warning(
-                        "⚠️ AI returned invalid JSON format."
+                        "⚠️ Invalid JSON response."
                     )
 
                     st.code(raw_text, language="json")
@@ -337,7 +327,7 @@ if st.button(
             or "401" in error_msg
         ):
 
-            st.error("❌ Invalid Gemini API Key.")
+            st.error("❌ Invalid API Key.")
 
         elif (
             "quota" in error_msg.lower()
@@ -345,14 +335,18 @@ if st.button(
             or "429" in error_msg
         ):
 
-            st.error("❌ Rate limit exceeded. Try again later.")
+            st.error(
+                "❌ Rate limit exceeded."
+            )
 
         elif (
             "404" in error_msg
             or "NOT_FOUND" in error_msg
         ):
 
-            st.error("❌ Gemini model not found.")
+            st.error(
+                "❌ Model not found."
+            )
 
         else:
 
@@ -360,11 +354,12 @@ if st.button(
 
             st.code(traceback.format_exc())
 
-# ------------------------------------------
+# -------------------------------------------------
 # FOOTER
-# ------------------------------------------
+# -------------------------------------------------
 st.markdown("---")
 
 st.caption(
-    "🚗 Automotive AI Vision Analyzer • Streamlit + Gemini 2.5 Flash"
+    "🚗 Automotive AI Vision Analyzer • Gemini 2.5 Flash"
 )
+````
