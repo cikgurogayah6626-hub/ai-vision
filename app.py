@@ -1,9 +1,9 @@
-# app.py
 import streamlit as st
 from google import genai
 from google.genai import types
 from PIL import Image
-import json
+import pandas as pd
+import io
 import traceback
 
 # -------------------------------------------------
@@ -12,26 +12,24 @@ import traceback
 st.set_page_config(
     page_title="Automotive AI Vision Analyzer",
     page_icon="🚗",
-    layout="centered"
+    layout="wide"
 )
 
 # -------------------------------------------------
 # HEADER
 # -------------------------------------------------
-st.title("🚗 AI Vision: Automotive Component Analyzer")
+st.title("🚗 Automotive AI Vision Analyzer")
 
-st.markdown(
-    """
+st.markdown("""
 Upload gambar komponen kereta dan AI akan:
 
 ✅ Kenal pasti komponen  
 ✅ Detect brand  
 ✅ Extract spesifikasi  
 ✅ Terangkan fungsi  
-✅ Detect part number  
-✅ OCR teks pada label/packaging  
-"""
-)
+✅ OCR teks pada label  
+✅ Export ke Excel  
+""")
 
 st.markdown("---")
 
@@ -53,7 +51,6 @@ with st.sidebar:
 
     st.divider()
 
-    # TEST API BUTTON
     if st.button("🧪 Test API Key", use_container_width=True):
 
         if not api_key:
@@ -65,18 +62,17 @@ with st.sidebar:
 
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
-                    contents="Reply with OK"
+                    contents="Reply only with: OK"
                 )
 
                 st.success(response.text)
 
             except Exception as e:
-
                 st.error(str(e))
                 st.code(traceback.format_exc())
 
 # -------------------------------------------------
-# FILE UPLOADER
+# FILE UPLOAD
 # -------------------------------------------------
 uploaded_file = st.file_uploader(
     "📁 Upload Automotive Component Image",
@@ -84,47 +80,25 @@ uploaded_file = st.file_uploader(
 )
 
 # -------------------------------------------------
-# DEFAULT PROMPT
+# PROMPT
 # -------------------------------------------------
 default_prompt = """
-You are an automotive component analysis AI assistant.
+Analyze this automotive component image.
 
-Analyze the uploaded automotive component image carefully using OCR and visual recognition.
+Extract:
+- Component Name
+- Brand
+- Category
+- Part Number
+- Vehicle Compatibility
+- Specifications
+- Function or Usage
+- Condition
+- Estimated Price
+- Visible Text
+- Confidence Score
 
-Return STRICT JSON only.
-
-Required JSON format:
-
-{
-  "component_name": "",
-  "brand": "",
-  "category": "",
-  "part_number": "",
-  "vehicle_compatibility": "",
-  "specifications": {
-    "material": "",
-    "size": "",
-    "weight": "",
-    "power_rating": "",
-    "voltage": "",
-    "dimensions": ""
-  },
-  "function_or_usage": "",
-  "condition": "",
-  "estimated_price": null,
-  "visible_text": [],
-  "detected_labels": [],
-  "confidence_score": 0
-}
-
-Rules:
-1. Return STRICT JSON only.
-2. Use null if information is missing.
-3. Never guess unknown values.
-4. Read all visible text from labels, stickers, engraving, packaging.
-5. Detect automotive components accurately.
-6. Explain briefly the function or usage.
-7. confidence_score must be between 0 and 100.
+Return clean readable text only.
 """
 
 # -------------------------------------------------
@@ -135,7 +109,7 @@ st.markdown("### 🎯 AI Prompt")
 prompt = st.text_area(
     "Prompt",
     value=default_prompt,
-    height=350
+    height=180
 )
 
 # -------------------------------------------------
@@ -149,15 +123,11 @@ if st.button(
 
     # VALIDATION
     if not api_key:
-        st.error("❌ Please enter Gemini API Key.")
+        st.error("❌ Please enter API key.")
         st.stop()
 
     if not uploaded_file:
-        st.error("❌ Please upload image first.")
-        st.stop()
-
-    if uploaded_file.size > 10 * 1024 * 1024:
-        st.error("❌ File too large. Max 10MB.")
+        st.error("❌ Please upload image.")
         st.stop()
 
     try:
@@ -166,20 +136,21 @@ if st.button(
         image = Image.open(uploaded_file).convert("RGB")
 
         # DISPLAY
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([1, 2])
 
         with col1:
-            st.markdown("### 📷 Uploaded Image")
-            st.image(image, use_container_width=True)
+            st.image(
+                image,
+                caption="Uploaded Image",
+                use_container_width=True
+            )
 
         # GEMINI CLIENT
         client = genai.Client(api_key=api_key)
 
         with col2:
 
-            st.markdown("### 🤖 AI Analysis")
-
-            with st.spinner("Analyzing component..."):
+            with st.spinner("🤖 AI analyzing automotive component..."):
 
                 response = client.models.generate_content(
 
@@ -188,169 +159,96 @@ if st.button(
                     contents=[prompt, image],
 
                     config=types.GenerateContentConfig(
-
-                        temperature=0.1,
-
-                        response_mime_type="application/json",
-
-                        response_schema={
-                            "type": "object",
-                            "properties": {
-
-                                "component_name": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "brand": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "category": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "part_number": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "vehicle_compatibility": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "specifications": {
-                                    "type": "object"
-                                },
-
-                                "function_or_usage": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "condition": {
-                                    "type": ["string", "null"]
-                                },
-
-                                "estimated_price": {
-                                    "type": ["number", "null"]
-                                },
-
-                                "visible_text": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                },
-
-                                "detected_labels": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                },
-
-                                "confidence_score": {
-                                    "type": "number"
-                                }
-                            }
-                        }
+                        temperature=0.1
                     )
                 )
 
-                # ---------------------------------
-                # SAFE RESPONSE PARSING
-                # ---------------------------------
-                raw_text = ""
+                result = response.text
 
-                if hasattr(response, "text") and response.text:
-                    raw_text = response.text.strip()
+                # -----------------------------------------
+                # SIMPLE TEXT PARSING
+                # -----------------------------------------
+                lines = result.split("\n")
 
-                elif response.candidates:
-                    raw_text = (
-                        response.candidates[0]
-                        .content.parts[0]
-                        .text.strip()
+                data = {
+                    "Field": [],
+                    "Value": []
+                }
+
+                for line in lines:
+
+                    if ":" in line:
+
+                        parts = line.split(":", 1)
+
+                        field = parts[0].strip()
+                        value = parts[1].strip()
+
+                        if field and value:
+
+                            data["Field"].append(field)
+                            data["Value"].append(value)
+
+                # -----------------------------------------
+                # FALLBACK IF NO STRUCTURE
+                # -----------------------------------------
+                if len(data["Field"]) == 0:
+
+                    data["Field"].append("Analysis")
+                    data["Value"].append(result)
+
+                # -----------------------------------------
+                # DATAFRAME
+                # -----------------------------------------
+                df = pd.DataFrame(data)
+
+                st.success("✅ Analysis Complete")
+
+                st.markdown("### 📊 Analysis Table")
+
+                st.dataframe(
+                    df,
+                    use_container_width=True
+                )
+
+                # -----------------------------------------
+                # EXCEL EXPORT
+                # -----------------------------------------
+                output = io.BytesIO()
+
+                with pd.ExcelWriter(
+                    output,
+                    engine="openpyxl"
+                ) as writer:
+
+                    df.to_excel(
+                        writer,
+                        index=False,
+                        sheet_name="Automotive Analysis"
                     )
 
-                # CLEAN MARKDOWN
-                raw_text = raw_text.strip()
+                excel_data = output.getvalue()
 
-                if "```json" in raw_text:
-                    raw_text = raw_text.split("```json")[1]
+                st.download_button(
+                    label="⬇️ Download Excel Report",
+                    data=excel_data,
+                    file_name="automotive_analysis.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
 
-                if "```" in raw_text:
-                    raw_text = raw_text.split("```")[0]
+                # -----------------------------------------
+                # RAW RESPONSE
+                # -----------------------------------------
+                with st.expander("🧠 Raw AI Response"):
 
-                raw_text = raw_text.strip()
-
-                # ---------------------------------
-                # JSON PARSE
-                # ---------------------------------
-                try:
-
-                    parsed_json = json.loads(raw_text)
-
-                    st.success("✅ Analysis Complete")
-
-                    st.json(parsed_json)
-
-                    # DOWNLOAD
-                    json_str = json.dumps(
-                        parsed_json,
-                        indent=2,
-                        ensure_ascii=False
-                    )
-
-                    st.download_button(
-                        label="⬇️ Download JSON",
-                        data=json_str,
-                        file_name="automotive_analysis.json",
-                        mime="application/json",
-                        use_container_width=True
-                    )
-
-                except json.JSONDecodeError:
-
-                    st.warning(
-                        "⚠️ Invalid JSON response."
-                    )
-
-                    st.code(raw_text, language="json")
+                    st.text(result)
 
     except Exception as e:
 
-        error_msg = str(e)
+        st.error(f"❌ Error: {str(e)}")
 
-        if (
-            "API key" in error_msg
-            or "API_KEY" in error_msg
-            or "401" in error_msg
-        ):
-
-            st.error("❌ Invalid API Key.")
-
-        elif (
-            "quota" in error_msg.lower()
-            or "rate" in error_msg.lower()
-            or "429" in error_msg
-        ):
-
-            st.error(
-                "❌ Rate limit exceeded."
-            )
-
-        elif (
-            "404" in error_msg
-            or "NOT_FOUND" in error_msg
-        ):
-
-            st.error(
-                "❌ Model not found."
-            )
-
-        else:
-
-            st.error(f"❌ System Error: {error_msg}")
-
-            st.code(traceback.format_exc())
+        st.code(traceback.format_exc())
 
 # -------------------------------------------------
 # FOOTER
@@ -358,5 +256,5 @@ if st.button(
 st.markdown("---")
 
 st.caption(
-    "🚗 Automotive AI Vision Analyzer • Gemini 2.5 Flash"
+    "🚗 Automotive AI Vision Analyzer • Streamlit + Gemini 2.5 Flash"
 )
